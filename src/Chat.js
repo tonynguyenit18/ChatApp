@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, TextInput, SafeAreaView, Animated, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
+import { KeyboardAvoidingView, View, Text, TouchableOpacity, TextInput, SafeAreaView, Animated, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
 import { fetchMessages } from "./utils/api"
 import io from "socket.io-client";
 let socket = io("http://10.1.5.5:3000");
 
 
-let keyboardHeight = new Animated.Value(0);
 const Chat = ({ userName, onLogout, id }) => {
     const [message, setMessage] = useState("")
     const [socket, setSocket] = useState(null)
@@ -57,15 +56,6 @@ const Chat = ({ userName, onLogout, id }) => {
             )
     }, [])
 
-    useEffect(() => {
-        const keyboardWillShowListener = Keyboard.addListener("keyboardWillShow", handleKeyboardWillShow);
-        const keyboardWillHideListener = Keyboard.addListener("keyboardWillHide", handleKeyboardWillHide);
-        return () => {
-            keyboardWillHideListener.remove();
-            keyboardWillShowListener.remove()
-        }
-    }, [])
-
     const handleReceiveNewMessage = data => {
         if (data && data.newMessage && data.user) {
             const newMessage = {
@@ -76,24 +66,6 @@ const Chat = ({ userName, onLogout, id }) => {
 
             setMessageArr(messageArr => [newMessage, ...messageArr,]);
         }
-    }
-
-    const handleKeyboardWillShow = event => {
-        Animated.parallel([
-            Animated.timing(keyboardHeight, {
-                duration: event.duration * 0.8,
-                toValue: event.endCoordinates.height + 30
-            })
-        ]).start();
-    }
-
-    const handleKeyboardWillHide = event => {
-        Animated.parallel([
-            Animated.timing(keyboardHeight, {
-                duration: event.duration * 0.8,
-                toValue: 0
-            })
-        ]).start()
     }
 
     const handleOnChangeText = text => {
@@ -117,8 +89,8 @@ const Chat = ({ userName, onLogout, id }) => {
     )
 
     return (
-        <SafeAreaView style={{ width: "100%", height: "100%" }} >
-            <Animated.View style={Platform.OS === "ios" ? [{ width: "100%", position: "relative", marginVertical: 10 }, { marginBottom: keyboardHeight }] : { width: "100%", marginVertical: 10 }}>
+        <KeyboardAvoidingView style={{ width: "100%", height: "100%" }} behavior="padding" enabled keyboardVerticalOffset={20}>
+            <SafeAreaView style={Platform.OS === "ios" ? [{ width: "100%", position: "relative", marginVertical: 10 }] : { width: "100%", marginVertical: 10 }}>
                 <View style={{ width: "100%", height: 70, flexDirection: "row", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#333333", position: "relative" }}>
                     <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
                         <Text style={{ fontSize: 22 }}>{userName}</Text>
@@ -143,8 +115,8 @@ const Chat = ({ userName, onLogout, id }) => {
                         <Text style={{ fontSize: 18, color: "#ffffff" }}>Send</Text>
                     </TouchableOpacity>
                 </View>
-            </Animated.View>
-        </SafeAreaView >
+            </SafeAreaView>
+        </KeyboardAvoidingView >
     );
 }
 
