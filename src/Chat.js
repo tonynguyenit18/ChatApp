@@ -88,35 +88,41 @@ const Chat = ({ userName, onLogout, id }) => {
         </TouchableOpacity>
     )
 
+    const renderBody = () => (<SafeAreaView style={{ width: "100%", position: "relative", marginVertical: 10 }}>
+        <View style={{ width: "100%", height: 70, flexDirection: "row", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#333333", position: "relative" }}>
+            <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 22 }}>{userName}</Text>
+            </View>
+            <TouchableOpacity onPress={onLogout} activeOpacity={0.6} style={{ position: "absolute", right: 20, height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 10, borderRadius: 10 }}>
+                <Text style={{ fontSize: 18, color: "#ffffff" }}>Log out</Text>
+            </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={{ width: "100%", height: "90%", paddingBottom: 100 }} activeOpacity={1} onPress={() => Keyboard.dismiss()}>
+            {loadingMsgs ? <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="small" color="#DF7373" /></View> :
+                messageArr && messageArr.length > 0 ?
+                    <FlatList
+                        data={messageArr}
+                        renderItem={renderItem}
+                        keyExtractor={(item, index) => item.userName + index}
+                        inverted /> :
+                    <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><Text>No messages</Text></View>}
+        </TouchableOpacity>
+        <View style={{ flexDirection: "row", justifyContent: "space-around", position: "absolute", bottom: 10, backgroundColor: "#ffffff" }}>
+            <TextInput onChangeText={handleOnChangeText} value={message} multiline={true} placeholder="Type here" style={{ width: "75%", borderColor: "#545454", borderWidth: 0.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 15, fontSize: 18, justifyContent: "center" }} />
+            <TouchableOpacity onPress={sendMessage} disabled={message ? false : true} activeOpacity={0.6} style={{ height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 20, borderRadius: 10 }}>
+                <Text style={{ fontSize: 18, color: "#ffffff" }}>Send</Text>
+            </TouchableOpacity>
+        </View>
+    </SafeAreaView>)
+
     return (
-        <KeyboardAvoidingView style={{ width: "100%", height: "100%" }} behavior="padding" enabled keyboardVerticalOffset={20}>
-            <SafeAreaView style={Platform.OS === "ios" ? [{ width: "100%", position: "relative", marginVertical: 10 }] : { width: "100%", marginVertical: 10 }}>
-                <View style={{ width: "100%", height: 70, flexDirection: "row", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: "#333333", position: "relative" }}>
-                    <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 22 }}>{userName}</Text>
-                    </View>
-                    <TouchableOpacity onPress={onLogout} activeOpacity={0.6} style={{ position: "absolute", right: 20, height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 10, borderRadius: 10 }}>
-                        <Text style={{ fontSize: 18, color: "#ffffff" }}>Log out</Text>
-                    </TouchableOpacity>
-                </View>
-                <TouchableOpacity style={{ width: "100%", height: "90%", paddingBottom: 100 }} activeOpacity={1} onPress={() => Keyboard.dismiss()}>
-                    {loadingMsgs ? <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="small" color="#DF7373" /></View> :
-                        messageArr && messageArr.length > 0 ?
-                            <FlatList
-                                data={messageArr}
-                                renderItem={renderItem}
-                                keyExtractor={(item, index) => item.userName + index}
-                                inverted /> :
-                            <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><Text>No messages</Text></View>}
-                </TouchableOpacity>
-                <View style={{ flexDirection: "row", justifyContent: "space-around", position: "absolute", bottom: 10, backgroundColor: "#ffffff" }}>
-                    <TextInput onChangeText={handleOnChangeText} value={message} multiline={true} placeholder="Type here" style={{ width: "75%", borderColor: "#545454", borderWidth: 0.5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 15, fontSize: 18, justifyContent: "center" }} />
-                    <TouchableOpacity onPress={sendMessage} disabled={message ? false : true} activeOpacity={0.6} style={{ height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 20, borderRadius: 10 }}>
-                        <Text style={{ fontSize: 18, color: "#ffffff" }}>Send</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        </KeyboardAvoidingView >
+        <React.Fragment>
+            {Platform.OS === "ios" ?
+                <KeyboardAvoidingView style={{ width: "100%", height: "100%" }} behavior="padding" enabled keyboardVerticalOffset={20}>
+                    {renderBody()}
+                </KeyboardAvoidingView > :
+                renderBody()}
+        </React.Fragment>
     );
 }
 
