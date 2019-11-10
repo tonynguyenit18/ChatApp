@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { KeyboardAvoidingView, View, Text, TouchableOpacity, TextInput, SafeAreaView, Animated, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { fetchMessages } from "./utils/api"
+import { fetchMessages, SOCKET_URL } from "./utils/api"
 import io from "socket.io-client";
-let socket = io("http://10.1.5.5:3000");
+let socket = io(SOCKET_URL);
 
 
 const Chat = ({ userName, onLogout, id }) => {
@@ -13,21 +13,21 @@ const Chat = ({ userName, onLogout, id }) => {
 
     useEffect(() => {
         if (!socket) {
-            const newSocket = io("http://192.168.1.105:3000");
+            const newSocket = io(SOCKET_URL);
             setSocket(newSocket)
         } else {
             socket.on("connect", () => {
                 if (socket.connected) {
                     socket.on("newMessage", handleReceiveNewMessage);
                 } else {
-                    const newSocket = io("http://192.168.1.105:3000");
+                    const newSocket = io(SOCKET_URL);
                     setSocket(newSocket)
                 }
             })
 
             socket.on("disconnect", reason => {
                 console.log("disconnected", socket.disconnected, reason);
-                const newSocket = io("http://192.168.1.105:3000");
+                const newSocket = io(SOCKET_URL);
                 setSocket(newSocket)
             });
         }
@@ -39,12 +39,13 @@ const Chat = ({ userName, onLogout, id }) => {
     }, [socket])
 
     useEffect(() => {
-        fetchMessages().then(response => response.json()).then(result => {
-            if (result && result.messages && result.messages.length > 0) {
-                const msgs = result.messages.map(msg => {
+        fetchMessages().then(result => {
+            console.log("result", result.data)
+            setLoadingMsgs(false)
+            if (result && result.data && result.data.messages && result.data.messages.length > 0) {
+                const msgs = result.data.messages.map(msg => {
                     return { content: msg.content, userName: msg.user.userName, color: msg.user.color };
                 })
-                setLoadingMsgs(false)
                 msgs.reverse();
                 setMessageArr(msgs)
             }
@@ -74,7 +75,7 @@ const Chat = ({ userName, onLogout, id }) => {
 
     const sendMessage = () => {
         if (!socket) {
-            const newSocket = io("http://192.168.1.105:3000");
+            const newSocket = io(SOCKET_URL);
             setSocket(newSocket);
         }
         socket.emit("newMessage", { userId: id, content: message })
