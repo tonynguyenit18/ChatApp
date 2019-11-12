@@ -40,7 +40,6 @@ const Chat = ({ userName, onLogout, id }) => {
 
     useEffect(() => {
         fetchMessages().then(result => {
-            console.log("result", result.data)
             setLoadingMsgs(false)
             if (result && result.data && result.data.messages && result.data.messages.length > 0) {
                 const msgs = result.data.messages.map(msg => {

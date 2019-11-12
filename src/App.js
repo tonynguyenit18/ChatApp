@@ -120,29 +120,29 @@ const App = () => {
       .setSound('sound.mp3');
     firebase.notifications().android.createChannel(channel);
 
-    // notificationListener = firebase.notifications().onNotification((notification) => {
-    //   const { title, body, data } = notification;
-    //   console.log('onNotification:', notification);
+    notificationListener = firebase.notifications().onNotification((notification) => {
+      const { title, body, data } = notification;
+      console.log('onNotification:', notification);
 
-    //   const localNotification = new firebase.notifications.Notification({
-    //     sound: 'sound',
-    //     show_in_foreground: true,
-    //     show_in_background: true,
-    //   })
-    //     .setSound(channel.sound)
-    //     .setNotificationId(notification.notificationId)
-    //     .setTitle(title)
-    //     .setBody(body)
-    //     .setData(data)
-    //     .android.setChannelId("@string/default_notification_channel_id") // e.g. the id you chose above
-    //     .android.setSmallIcon('@mipmap/ic_launcher') // create this icon in Android Studio
-    //     .android.setColor('#000000') // you can set a color here
-    //     .android.setPriority(firebase.notifications.Android.Priority.High);
+      const localNotification = new firebase.notifications.Notification({
+        sound: 'sound',
+        show_in_foreground: true,
+        show_in_background: true,
+      })
+        .setSound(channel.sound)
+        .setNotificationId(notification.notificationId)
+        .setTitle(title)
+        .setBody(body)
+        .setData(data)
+        .android.setChannelId("@string/default_notification_channel_id") // e.g. the id you chose above
+        .android.setSmallIcon('@mipmap/ic_launcher') // create this icon in Android Studio
+        .android.setColor('#000000') // you can set a color here
+        .android.setPriority(firebase.notifications.Android.Priority.High);
 
-    //   firebase.notifications()
-    //     .displayNotification(localNotification)
-    //     .catch(err => console.error(err));
-    // });
+      firebase.notifications()
+        .displayNotification(localNotification)
+        .catch(err => console.error(err));
+    });
 
     /*
     * If your app is in background, you can listen for when a notification is clicked / tapped / opened as follows:
