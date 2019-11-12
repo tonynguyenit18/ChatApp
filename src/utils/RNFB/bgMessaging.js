@@ -19,5 +19,5 @@ export default async (message: RemoteMessage) => {
             .android.setChannelId('@string/default_notification_channel_id')
     }
     await firebase.notifications().displayNotification(notificationToBeDisplayed);
-    return Promise.resolve();
+    return Promise.resolve(message);
 }
