@@ -15,6 +15,7 @@ const App = () => {
   const [id, setId] = useState("")
   const [userName, setUserName] = useState("")
   const [error, seterror] = useState("")
+  const [fromNoti, setFromNoti] = useState(false)
 
   useEffect(() => {
     checkPermission();
@@ -111,6 +112,10 @@ const App = () => {
     }
   }
 
+  const resetFromNotiVar = () => {
+    setFromNoti(false);
+  }
+
   const createNotificationListeners = async () => {
     /*
     * Triggered when a particular notification has been received in foreground
@@ -150,6 +155,7 @@ const App = () => {
     notificationOpenedListener = firebase.notifications().onNotificationOpened((notificationOpen) => {
       const { title, body } = notificationOpen.notification;
       console.log('onNotificationOpened:');
+      setFromNoti(true)
     });
 
     /*
@@ -194,7 +200,7 @@ const App = () => {
     <React.Fragment>
       {!userName ?
         <Login onLogin={handleLogin} onChangeText={handleUsernameChange} error={error} /> :
-        <Chat onLogout={handleLogout} userName={userName} id={id} />}
+        <Chat onLogout={handleLogout} userName={userName} id={id} fromNoti={fromNoti} resetFromNotiVar={resetFromNotiVar} />}
     </React.Fragment>
   )
 };

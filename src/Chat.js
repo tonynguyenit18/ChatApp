@@ -5,7 +5,7 @@ import io from "socket.io-client";
 let socket = io(SOCKET_URL);
 
 
-const Chat = ({ userName, onLogout, id }) => {
+const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     const [message, setMessage] = useState("")
     const [socket, setSocket] = useState(null)
     const [messageArr, setMessageArr] = useState([])
@@ -39,6 +39,10 @@ const Chat = ({ userName, onLogout, id }) => {
     }, [socket])
 
     useEffect(() => {
+        getMessages();
+    }, [])
+
+    const getMessages = () => {
         fetchMessages().then(result => {
             setLoadingMsgs(false)
             if (result && result.data && result.data.messages && result.data.messages.length > 0) {
@@ -54,7 +58,7 @@ const Chat = ({ userName, onLogout, id }) => {
                 console.log("Fetch messages error: ", err);
             }
             )
-    }, [])
+    }
 
     const handleReceiveNewMessage = data => {
         if (data && data.newMessage && data.user) {
@@ -114,6 +118,13 @@ const Chat = ({ userName, onLogout, id }) => {
             </TouchableOpacity>
         </View>
     </SafeAreaView>)
+
+
+
+    if (fromNoti) {
+        getMessages();
+        resetFromNotiVar();
+    }
 
     return (
         <React.Fragment>
