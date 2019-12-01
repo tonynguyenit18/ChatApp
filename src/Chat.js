@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { KeyboardAvoidingView, View, Text, TouchableOpacity, TextInput, SafeAreaView, Animated, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { fetchMessages, SOCKET_URL } from "./utils/api"
+import { KeyboardAvoidingView, View, Text, Linking, Alert, TouchableOpacity, TextInput, SafeAreaView, Image, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
+import { fetchMessages, SOCKET_URL, fetchMessage } from "./utils/api";
+import { setupRNBackgroundGeolocation } from "./utils/RNBackgroundGeolocation"
 import io from "socket.io-client";
-let socket = io(SOCKET_URL);
+import { iccShareLocation } from "./images"
+import { trackingUserLocation } from "./utils/helpers"
+import { getCurrentLocationAsyc } from "./utils/RNBackgroundGeolocation"
 
 
 const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     const [message, setMessage] = useState("")
-    const [socket, setSocket] = useState(null)
+    const [socket, setSocket] = useState(io(SOCKET_URL))
     const [messageArr, setMessageArr] = useState([])
     const [loadingMsgs, setLoadingMsgs] = useState(true);
 
@@ -40,6 +43,8 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
 
     useEffect(() => {
         getMessages();
+        // setupRNBackgroundGeolocation(startTracking("a"))
+
     }, [])
 
     const getMessages = () => {
@@ -47,7 +52,8 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             setLoadingMsgs(false)
             if (result && result.data && result.data.messages && result.data.messages.length > 0) {
                 const msgs = result.data.messages.map(msg => {
-                    return { content: msg.content, userName: msg.user.userName, color: msg.user.color };
+                    const isShareLocationMsg = checkIsShareLocationMsg(msg.content)
+                    return { isShareLocationMsg, content: msg.content, userName: msg.user.userName, color: msg.user.color, msgId: msg._id };
                 })
                 msgs.reverse();
                 setMessageArr(msgs)
@@ -60,20 +66,98 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             )
     }
 
+    const checkIsShareLocationMsg = (content) => {
+        let isShareLocationMsg = false;
+        try {
+            const location = JSON.parse(content)
+            if (location && location.latitude && location.longitude) {
+                isShareLocationMsg = true
+            }
+        } catch (error) {
+        }
+        return isShareLocationMsg;
+    }
+
     const handleReceiveNewMessage = data => {
         if (data && data.newMessage && data.user) {
+            const isShareLocationMsg = checkIsShareLocationMsg(data.newMessage.content)
             const newMessage = {
+                isShareLocationMsg,
                 content: data.newMessage.content,
+                msgId: data.newMessage._id,
                 userName: data.user.userName,
                 color: data.user.color
             }
-
             setMessageArr(messageArr => [newMessage, ...messageArr,]);
+            if (isShareLocationMsg && data.user.userName === userName && data.newMessage._id) {
+                setupRNBackgroundGeolocation(startTracking(data.newMessage._id))
+            }
         }
+    }
+
+    const startTracking = (msgId) => () => {
+        trackingUserLocation(msgId)
     }
 
     const handleOnChangeText = text => {
         setMessage(text)
+    }
+
+    const handleMsgContentClick = (msgId) => async () => {
+        const result = await fetchMessage(msgId);
+        if (result && result.data && result.data.message && result.data.message) {
+            if (result.data.message.content) {
+                const location = JSON.parse(result.data.message.content)
+                const createdAt = result.data.message.createdAt;
+                const createdAtTimeStamp = Date.parse(createdAt);
+                const currentTimeStamp = (new Date()).getTime();
+                const timeGap = currentTimeStamp - createdAtTimeStamp;
+                const timeout = 900000 //ms
+                let alertMsg = "";
+                if (timeGap > timeout) {
+                    alertMsg = "Tracking location on this user is stopped. Open the user lastest location?"
+                } else {
+                    alertMsg = "Open user current location?"
+                }
+                Alert.alert(
+                    "Open Google map",
+                    alertMsg,
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Ok", onPress: () => openGoogleMap(location) },
+                    ]
+                )
+
+            } else {
+                Alert.alert(
+                    "Notice!",
+                    "Location link is invalid.",
+                    [
+                        { text: "Ok", style: "cancel" }
+                    ]
+                )
+            }
+        } else {
+            Alert.alert(
+                "Notice!",
+                "Location link is invalid.",
+                [
+                    { text: "Ok", style: "cancel" }
+                ]
+            )
+        }
+    }
+
+    const openGoogleMap = (location) => {
+        const schema = Platform.select({ ios: "comgooglemaps://?q=", android: "geo:0,0?q=" });
+        const latLng = location ? `${location.latitude},${location.longitude}` : "";
+        const label = userName + " location";
+        const url = Platform.select({
+            ios: `${schema}${label}@${latLng}`,
+            android: `${schema}${latLng}(${label})`
+        })
+
+        Linking.openURL(url);
     }
 
     const sendMessage = () => {
@@ -85,10 +169,28 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
         setMessage("")
     }
 
+    const shareLocation = async () => {
+        //Template for share location message {"latitude":-37.787608,"longitude":144.877108}
+        const currentLocation = await getCurrentLocationAsyc();
+        if (currentLocation && currentLocation.coords) {
+            const { latitude, longitude } = currentLocation.coords
+            const msg = JSON.stringify({ latitude, longitude })
+            if (!socket) {
+                const newSocket = io(SOCKET_URL);
+                setSocket(newSocket);
+            }
+            socket.emit("newMessage", { userId: id, content: msg })
+        }
+    }
+
     const renderItem = ({ item }) => (
         <TouchableOpacity activeOpacity={1} style={{ flexDirection: "row", marginLeft: 20, marginTop: 10 }}>
             <Text style={userName === item.userName ? { fontSize: 18, marginRight: 10, color: "#ff0000" } : { fontSize: 18, marginRight: 10, color: item.color }}>{item.userName}:</Text>
-            <Text style={{ fontSize: 18 }}>{item.content}</Text>
+            {item.isShareLocationMsg ?
+                <Text onPress={handleMsgContentClick(item.msgId)} style={{ color: "#19A3E5", textDecorationLine: "underline", fontSize: 18 }}>Locate me</Text> :
+                <Text style={{ fontSize: 18 }}>{item.content}</Text>
+
+            }
         </TouchableOpacity>
     )
 
@@ -97,6 +199,9 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontSize: 22 }}>{userName}</Text>
             </View>
+            <TouchableOpacity onPress={shareLocation} activeOpacity={0.5} style={{ position: "absolute", left: 20, width: 50, height: 50 }}>
+                <Image source={iccShareLocation} style={{ width: "100%", height: "100%" }} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={onLogout} activeOpacity={0.6} style={{ position: "absolute", right: 20, height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 10, borderRadius: 10 }}>
                 <Text style={{ fontSize: 18, color: "#ffffff" }}>Log out</Text>
             </TouchableOpacity>
