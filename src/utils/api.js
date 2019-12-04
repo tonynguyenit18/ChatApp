@@ -6,7 +6,6 @@ export const SOCKET_URL = "http://192.168.1.103:3000";
 
 const axiosIns = axios.create({
     baseURL: BASE_URL,
-    timeout: 10000,
     headers: {
         "Content-Type": "application/json"
     }
@@ -25,4 +24,8 @@ export const fetchMessage = (msgId) => {
 
 export const updateUserLocation = (body) => {
     return axiosIns.post(`/api/location/`, body);
+}
+
+export const updateImage = (body) => {
+    return axiosIns.post(`/api/image/`, body);
 }

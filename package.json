@@ -16,7 +16,10 @@
     "react-native": "0.61.4",
     "react-native-background-fetch": "^2.7.1",
     "react-native-background-geolocation": "^3.3.2",
+    "react-native-background-timer": "^2.1.1",
+    "react-native-easy-toast": "^1.2.0",
     "react-native-firebase": "^5.5.6",
+    "react-native-image-picker": "^1.1.0",
     "socket.io-client": "^2.3.0"
   },
   "devDependencies": {

@@ -22,7 +22,7 @@ const startUpdatingLocationInterval = msgId => async () => {
             longitude: result.coords.longitude,
         }
         const response = await updateUserLocation({ location: JSON.stringify(location), msgId })
-        // console.log("response", response)
+        console.log("response", response)
     });
 }
 

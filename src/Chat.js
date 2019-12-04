@@ -1,18 +1,32 @@
 import React, { useState, useEffect, useRef } from "react";
 import { KeyboardAvoidingView, View, Text, Linking, Alert, TouchableOpacity, TextInput, SafeAreaView, Image, Keyboard, Platform, FlatList, ActivityIndicator, StyleSheet } from "react-native";
-import { fetchMessages, SOCKET_URL, fetchMessage } from "./utils/api";
+import { fetchMessages, SOCKET_URL, fetchMessage, updateImage, updateUserLocation } from "./utils/api";
 import { setupRNBackgroundGeolocation } from "./utils/RNBackgroundGeolocation"
 import io from "socket.io-client";
-import { iccShareLocation } from "./images"
+import { iccShareLocation, icCamera } from "./images"
 import { trackingUserLocation } from "./utils/helpers"
 import { getCurrentLocationAsyc } from "./utils/RNBackgroundGeolocation"
+import ImagePicker from 'react-native-image-picker';
+import BackgroundTimer from 'react-native-background-timer';
+import Toast, { DURATION } from 'react-native-easy-toast'
 
+const options = {
+    title: 'Select Image',
+    storageOptions: {
+        skipBackup: true,
+        path: 'images',
+    },
+};
 
+//There are three types of message text, location and image
 const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     const [message, setMessage] = useState("")
     const [socket, setSocket] = useState(io(SOCKET_URL))
     const [messageArr, setMessageArr] = useState([])
     const [loadingMsgs, setLoadingMsgs] = useState(true);
+    const [openedImgUrl, setOpenedImgUrl] = useState("")
+    const [loadingImg, setLoadingImg] = useState(false);
+    const toastRef = useRef(null)
 
     useEffect(() => {
         if (!socket) {
@@ -43,7 +57,6 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
 
     useEffect(() => {
         getMessages();
-        // setupRNBackgroundGeolocation(startTracking("a"))
 
     }, [])
 
@@ -51,9 +64,9 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
         fetchMessages().then(result => {
             setLoadingMsgs(false)
             if (result && result.data && result.data.messages && result.data.messages.length > 0) {
+                console.log(result)
                 const msgs = result.data.messages.map(msg => {
-                    const isShareLocationMsg = checkIsShareLocationMsg(msg.content)
-                    return { isShareLocationMsg, content: msg.content, userName: msg.user.userName, color: msg.user.color, msgId: msg._id };
+                    return { content: msg.content, userName: msg.user.userName, color: msg.user.color, msgId: msg._id, type: msg.type };
                 })
                 msgs.reverse();
                 setMessageArr(msgs)
@@ -66,37 +79,30 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             )
     }
 
-    const checkIsShareLocationMsg = (content) => {
-        let isShareLocationMsg = false;
-        try {
-            const location = JSON.parse(content)
-            if (location && location.latitude && location.longitude) {
-                isShareLocationMsg = true
-            }
-        } catch (error) {
-        }
-        return isShareLocationMsg;
-    }
-
     const handleReceiveNewMessage = data => {
+        console.log("bewMsgData", data)
         if (data && data.newMessage && data.user) {
-            const isShareLocationMsg = checkIsShareLocationMsg(data.newMessage.content)
             const newMessage = {
-                isShareLocationMsg,
+                type: data.newMessage.type,
                 content: data.newMessage.content,
                 msgId: data.newMessage._id,
                 userName: data.user.userName,
                 color: data.user.color
             }
             setMessageArr(messageArr => [newMessage, ...messageArr,]);
-            if (isShareLocationMsg && data.user.userName === userName && data.newMessage._id) {
+            if (data.newMessage.type === "location" && data.user.userName === userName && data.newMessage._id) {
+                console.log("Start setting up tracking")
                 setupRNBackgroundGeolocation(startTracking(data.newMessage._id))
+            }
+            if (data.newMessage.type === "image" && data.user.userName === userName && data.newMessage._id) {
+                BackgroundTimer.stop();
             }
         }
     }
 
     const startTracking = (msgId) => () => {
         trackingUserLocation(msgId)
+        toastRef.current.show("Start sharing location.")
     }
 
     const handleOnChangeText = text => {
@@ -165,7 +171,7 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             const newSocket = io(SOCKET_URL);
             setSocket(newSocket);
         }
-        socket.emit("newMessage", { userId: id, content: message })
+        socket.emit("newMessage", { userId: id, content: message, type: "text" })
         setMessage("")
     }
 
@@ -179,16 +185,55 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
                 const newSocket = io(SOCKET_URL);
                 setSocket(newSocket);
             }
-            socket.emit("newMessage", { userId: id, content: msg })
+            socket.emit("newMessage", { userId: id, content: msg, type: "location" })
         }
+    }
+
+    /*------Image picker section ------*/
+    const showImagePicker = () => {
+        ImagePicker.showImagePicker(options, async (response) => {
+            console.log('Response = ', response);
+
+            if (response.didCancel) {
+                console.log('User cancelled image picker');
+            } else if (response.error) {
+                console.log('ImagePicker Error: ', response.error);
+            } else if (response.customButton) {
+                console.log('User tapped custom button: ', response.customButton);
+            } else {
+                const source = { uri: response.uri };
+                BackgroundTimer.start();
+                // const result = await updateImage({ base64: response.data, imgType: response.type, userId: id, type: "image" })
+                // console.log("updateimage", result)
+                if (!socket) {
+                    const newSocket = io(SOCKET_URL);
+                    setSocket(newSocket);
+                }
+                socket.emit("newMessage", { base64: response.data, imgType: response.type, userId: id, type: "image" })
+                toastRef.current.show("Start sending image.")
+                // You can also display the image using data:
+                // const source = { uri: 'data:image/jpeg;base64,' + response.data };
+            }
+        });
+    }
+
+    const onLoadImgStart = (e) => {
+        console.log("start")
+        setLoadingImg(true)
+    }
+
+    const onLoadImgEnd = (e) => {
+        console.log("end")
+        setLoadingImg(false)
     }
 
     const renderItem = ({ item }) => (
         <TouchableOpacity activeOpacity={1} style={{ flexDirection: "row", marginLeft: 20, marginTop: 10 }}>
             <Text style={userName === item.userName ? { fontSize: 18, marginRight: 10, color: "#ff0000" } : { fontSize: 18, marginRight: 10, color: item.color }}>{item.userName}:</Text>
-            {item.isShareLocationMsg ?
+            {item.type == "location" ?
                 <Text onPress={handleMsgContentClick(item.msgId)} style={{ color: "#19A3E5", textDecorationLine: "underline", fontSize: 18 }}>Locate me</Text> :
-                <Text style={{ fontSize: 18 }}>{item.content}</Text>
+                item.type === "text" ? <Text style={{ fontSize: 18 }}>{item.content}</Text> :
+                    <Text onPress={() => setOpenedImgUrl(item.content)} style={{ color: "#19A3E5", textDecorationLine: "underline", fontSize: 18 }}>{item.content}</Text>
 
             }
         </TouchableOpacity>
@@ -201,6 +246,9 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             </View>
             <TouchableOpacity onPress={shareLocation} activeOpacity={0.5} style={{ position: "absolute", left: 20, width: 50, height: 50 }}>
                 <Image source={iccShareLocation} style={{ width: "100%", height: "100%" }} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={showImagePicker} activeOpacity={0.5} style={{ position: "absolute", left: 80, width: 50, height: 50 }}>
+                <Image source={icCamera} style={{ width: "100%", height: "100%" }} />
             </TouchableOpacity>
             <TouchableOpacity onPress={onLogout} activeOpacity={0.6} style={{ position: "absolute", right: 20, height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 10, borderRadius: 10 }}>
                 <Text style={{ fontSize: 18, color: "#ffffff" }}>Log out</Text>
@@ -222,6 +270,18 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
                 <Text style={{ fontSize: 18, color: "#ffffff" }}>Send</Text>
             </TouchableOpacity>
         </View>
+        {openedImgUrl ?
+            <View style={{ ...StyleSheet.absoluteFill, backgroundColor: "#ffffff" }}>
+                <Image onLoadStart={onLoadImgStart} onLoadEnd={onLoadImgEnd} source={{ uri: openedImgUrl }} style={{ width: "100%", height: "100%", resizeMode: "contain" }} />
+                {loadingImg ?
+                    <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center", top: 40, left: 0, right: 0, bottom: 0 }}>
+                        <ActivityIndicator size="small" />
+                    </View> : null}
+                <TouchableOpacity style={{ ...StyleSheet.absoluteFill, top: 20, left: 20, width: 80, height: 80 }} onPress={() => setOpenedImgUrl("")}>
+                    <Text style={{ fontSize: 50, color: "#1091FC" }}>{"<"}</Text>
+                </TouchableOpacity>
+            </View> : null}
+        <Toast ref={toastRef} />
     </SafeAreaView>)
 
 
