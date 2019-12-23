@@ -1,7 +1,9 @@
 import BackgroundGeolocation from "react-native-background-geolocation";
-import { updateUserLocation } from "../api"
+import { Platform } from "react-native"
+import { BASE_URL } from "../api"
 
-const setupRNBackgroundGeolocation = (callback) => {
+
+const setupRNBackgroundGeolocation = (callback, msgId) => {
     ////
     // 1.  Wire up event-listeners
     //
@@ -20,40 +22,98 @@ const setupRNBackgroundGeolocation = (callback) => {
     ////
     // 2.  Execute #ready method (required)
     //
-    BackgroundGeolocation.ready({
-        // Geolocation Config
-        desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
-        distanceFilter: 10,
-        // Activity Recognition
-        stopTimeout: 1,
-        // Application config
-        debug: false, // <-- enable this hear sounds for background-geolocation life-cycle.
-        logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE,
-        stopOnTerminate: false,   // <-- Allow the background-service to continue tracking when user closes the app.
-        startOnBoot: true,        // <-- Auto start tracking when device is powered-up.
-        stopOnStationary: false,
-        // HTTP / SQLite config
-        url: 'http://192.168.1.103:3000/api/location/Tony/',
-        batchSync: false,       // <-- [Default: false] Set true to sync locations to server in a single HTTP request.
-        autoSync: true,         // <-- [Default: true] Set true to sync each location to server as it arrives.
-        headers: {              // <-- Optional HTTP headers
-            "Content-Type": "application/json"
-        },
-        params: {               // <-- Optional HTTP params
-            "auth_token": "maybe_your_server_authenticates_via_token_YES?"
-        }
-    }, (state) => {
-        console.log("- BackgroundGeolocation is configured and ready: ", state.enabled);
-        callback()
-        if (!state.enabled) {
-            ////
-            // 3. Start tracking!
-            //
-            BackgroundGeolocation.start(function () {
-                console.log("- Start success");
-            });
-        }
-    });
+
+    if (Platform.OS == "android") {
+        BackgroundGeolocation.onHttp(response => {
+            console.log("loc res 1", response, response.responseText)
+            if (response && response.responseText) {
+                try {
+                    console.log("loc res", response.responseText)
+                    const updatedMsg = JSON.parse(response.responseText).updatedMsg;
+                    const { createdAt, updatedAt } = updatedMsg
+                    const startTime = new Date(createdAt).getTime();
+                    const updatedTime = new Date(updatedAt).getTime();
+                    console.log("time", startTime, updatedTime, updatedTime - startTime)
+                    if (updatedTime - startTime >= 900000) {
+                        BackgroundGeolocation.removeListeners();
+                    }
+                } catch (error) {
+
+                }
+            }
+        });
+        BackgroundGeolocation.ready({
+            // Geolocation Config
+            desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
+            distanceFilter: 0,
+            locationUpdateInterval: 10000,
+            locationTemplate: '{"latitude":<%= latitude %>,"longitude":<%= longitude %>}',
+            // Activity Recognition
+            stopTimeout: 1,
+            // Application config
+            debug: false, // <-- enable this hear sounds for background-geolocation life-cycle.
+            logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE,
+            stopOnTerminate: false,   // <-- Allow the background-service to continue tracking when user closes the app.
+            startOnBoot: false,        // <-- Auto start tracking when device is powered-up.
+            stopOnStationary: false,
+            // HTTP / SQLite config
+            url: `${BASE_URL}/api/location/`,
+            batchSync: false,       // <-- [Default: false] Set true to sync locations to server in a single HTTP request.
+            autoSync: true,         // <-- [Default: true] Set true to sync each location to server as it arrives.
+            headers: {              // <-- Optional HTTP headers
+                "Content-Type": "application/json"
+            },
+            params: {               // <-- Optional HTTP params
+                "msgId": msgId
+            }
+        }, (state) => {
+            console.log("- BackgroundGeolocation is configured and ready in android: ", state.enabled);
+            if (!state.enabled) {
+                ////
+                // 3. Start tracking!
+                //
+                BackgroundGeolocation.start(function () {
+                    console.log("- Start success");
+                });
+            }
+        });
+    } else {
+        BackgroundGeolocation.ready({
+            // Geolocation Config
+            desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
+            distanceFilter: 10,
+            // Activity Recognition
+            stopTimeout: 1,
+            locationAuthorizationRequest: "Always",
+            // Application config
+            debug: false, // <-- enable this hear sounds for background-geolocation life-cycle.
+            logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE,
+            stopOnTerminate: false,   // <-- Allow the background-service to continue tracking when user closes the app.
+            startOnBoot: false,        // <-- Auto start tracking when device is powered-up.
+            stopOnStationary: false,
+            // HTTP / SQLite config
+            url: `${BASE_URL}/api/location/Tony`,
+            batchSync: false,       // <-- [Default: false] Set true to sync locations to server in a single HTTP request.
+            autoSync: true,         // <-- [Default: true] Set true to sync each location to server as it arrives.
+            headers: {              // <-- Optional HTTP headers
+                "Content-Type": "application/json"
+            },
+            params: {               // <-- Optional HTTP params
+                "auth_token": "maybe_your_server_authenticates_via_token_YES?"
+            }
+        }, (state) => {
+            console.log("- BackgroundGeolocation is configured and ready in ios: ", state.enabled);
+            callback()
+            if (!state.enabled) {
+                ////
+                // 3. Start tracking!
+                //
+                BackgroundGeolocation.start(function () {
+                    console.log("- Start success");
+                });
+            }
+        });
+    }
 }
 
 // You must remove listeners when your component unmounts

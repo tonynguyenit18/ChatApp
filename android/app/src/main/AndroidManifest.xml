@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
       android:usesCleartextTraffic="true"
@@ -13,6 +15,8 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme">
+      <meta-data android:name="com.transistorsoft.locationmanager.license" android:value="36ba7a9f77759aecdae64092abaab5469a3a4810e8e388a9abed87a81d1872ed" />
+
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

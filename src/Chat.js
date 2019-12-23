@@ -27,6 +27,8 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     const [openedImgUrl, setOpenedImgUrl] = useState("")
     const [loadingImg, setLoadingImg] = useState(false);
     const toastRef = useRef(null)
+    const [startSharingImg, setStartSharingImg] = useState(false)
+    const [startSharingLoc, setStartSharingLoc] = useState(false)
 
     useEffect(() => {
         if (!socket) {
@@ -57,18 +59,18 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
 
     useEffect(() => {
         getMessages();
-
     }, [])
 
     const getMessages = () => {
         fetchMessages().then(result => {
             setLoadingMsgs(false)
+            console.log(result)
             if (result && result.data && result.data.messages && result.data.messages.length > 0) {
-                console.log(result)
                 const msgs = result.data.messages.map(msg => {
-                    return { content: msg.content, userName: msg.user.userName, color: msg.user.color, msgId: msg._id, type: msg.type };
+                    return { content: msg.content, userName: msg.user ? msg.user.userName : "User", color: msg.user ? msg.user.color : "#ff0000", msgId: msg._id, type: msg.type };
                 })
                 msgs.reverse();
+                console.log(msgs)
                 setMessageArr(msgs)
             }
         })
@@ -91,10 +93,12 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             }
             setMessageArr(messageArr => [newMessage, ...messageArr,]);
             if (data.newMessage.type === "location" && data.user.userName === userName && data.newMessage._id) {
+                setStartSharingLoc(false)
                 console.log("Start setting up tracking")
-                setupRNBackgroundGeolocation(startTracking(data.newMessage._id))
+                setupRNBackgroundGeolocation(startTracking(data.newMessage._id), data.newMessage._id)
             }
             if (data.newMessage.type === "image" && data.user.userName === userName && data.newMessage._id) {
+                setStartSharingImg(false)
                 BackgroundTimer.stop();
             }
         }
@@ -176,23 +180,29 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     }
 
     const shareLocation = async () => {
+        setStartSharingLoc(true)
         //Template for share location message {"latitude":-37.787608,"longitude":144.877108}
-        const currentLocation = await getCurrentLocationAsyc();
-        if (currentLocation && currentLocation.coords) {
-            const { latitude, longitude } = currentLocation.coords
-            const msg = JSON.stringify({ latitude, longitude })
-            if (!socket) {
-                const newSocket = io(SOCKET_URL);
-                setSocket(newSocket);
+        try {
+            const currentLocation = await getCurrentLocationAsyc();
+            if (currentLocation && currentLocation.coords) {
+                const { latitude, longitude } = currentLocation.coords
+                const msg = JSON.stringify({ latitude, longitude })
+                if (!socket) {
+                    const newSocket = io(SOCKET_URL);
+                    setSocket(newSocket);
+                }
+                socket.emit("newMessage", { userId: id, content: msg, type: "location" })
+            } else {
+                setStartSharingLoc(false)
             }
-            socket.emit("newMessage", { userId: id, content: msg, type: "location" })
+        } catch (error) {
+            setStartSharingLoc(false)
         }
     }
 
     /*------Image picker section ------*/
     const showImagePicker = () => {
         ImagePicker.showImagePicker(options, async (response) => {
-            console.log('Response = ', response);
 
             if (response.didCancel) {
                 console.log('User cancelled image picker');
@@ -202,13 +212,13 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
                 console.log('User tapped custom button: ', response.customButton);
             } else {
                 const source = { uri: response.uri };
-                BackgroundTimer.start();
                 // const result = await updateImage({ base64: response.data, imgType: response.type, userId: id, type: "image" })
                 // console.log("updateimage", result)
                 if (!socket) {
                     const newSocket = io(SOCKET_URL);
                     setSocket(newSocket);
                 }
+                setStartSharingImg(true)
                 socket.emit("newMessage", { base64: response.data, imgType: response.type, userId: id, type: "image" })
                 toastRef.current.show("Start sending image.")
                 // You can also display the image using data:
@@ -218,17 +228,15 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
     }
 
     const onLoadImgStart = (e) => {
-        console.log("start")
         setLoadingImg(true)
     }
 
     const onLoadImgEnd = (e) => {
-        console.log("end")
         setLoadingImg(false)
     }
 
     const renderItem = ({ item }) => (
-        <TouchableOpacity activeOpacity={1} style={{ flexDirection: "row", marginLeft: 20, marginTop: 10 }}>
+        <TouchableOpacity activeOpacity={1} style={{ flexDirection: "row", paddingHorizontal: 20, marginTop: 10, width: "95%" }}>
             <Text style={userName === item.userName ? { fontSize: 18, marginRight: 10, color: "#ff0000" } : { fontSize: 18, marginRight: 10, color: item.color }}>{item.userName}:</Text>
             {item.type == "location" ?
                 <Text onPress={handleMsgContentClick(item.msgId)} style={{ color: "#19A3E5", textDecorationLine: "underline", fontSize: 18 }}>Locate me</Text> :
@@ -244,11 +252,13 @@ const Chat = ({ userName, onLogout, id, fromNoti, resetFromNotiVar }) => {
             <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontSize: 22 }}>{userName}</Text>
             </View>
-            <TouchableOpacity onPress={shareLocation} activeOpacity={0.5} style={{ position: "absolute", left: 20, width: 50, height: 50 }}>
+            <TouchableOpacity disabled={startSharingLoc} onPress={shareLocation} activeOpacity={0.5} style={{ position: "absolute", left: 20, width: 50, height: 50 }}>
                 <Image source={iccShareLocation} style={{ width: "100%", height: "100%" }} />
+                {startSharingLoc && <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="small" /></View>}
             </TouchableOpacity>
-            <TouchableOpacity onPress={showImagePicker} activeOpacity={0.5} style={{ position: "absolute", left: 80, width: 50, height: 50 }}>
+            <TouchableOpacity disabled={startSharingImg} onPress={showImagePicker} activeOpacity={0.5} style={{ position: "absolute", left: 80, width: 50, height: 50 }}>
                 <Image source={icCamera} style={{ width: "100%", height: "100%" }} />
+                {startSharingImg && <View style={{ ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="small" /></View>}
             </TouchableOpacity>
             <TouchableOpacity onPress={onLogout} activeOpacity={0.6} style={{ position: "absolute", right: 20, height: 50, justifyContent: "center", alignItems: "center", backgroundColor: "#DF7373", paddingHorizontal: 10, borderRadius: 10 }}>
                 <Text style={{ fontSize: 18, color: "#ffffff" }}>Log out</Text>

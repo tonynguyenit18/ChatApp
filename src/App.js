@@ -155,6 +155,7 @@ const App = () => {
     notificationOpenedListener = firebase.notifications().onNotificationOpened((notificationOpen) => {
       const { title, body } = notificationOpen.notification;
       console.log('onNotificationOpened:');
+      firebase.notifications().removeAllDeliveredNotifications();
       setFromNoti(true)
     });
 
