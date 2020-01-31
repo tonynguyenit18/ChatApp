@@ -1,6 +1,6 @@
 import axios from "axios";
-// export const BASE_URL = "http://192.168.1.103:8080";
-// export const SOCKET_URL = "http://192.168.1.103:3000";
+// export const BASE_URL = "http://192.168.1.111:8080";
+// export const SOCKET_URL = "http://192.168.1.111:3000";
 export const SOCKET_URL = "http://104.46.5.197:3000";
 export const BASE_URL = "http://104.46.5.197:8080";
 
@@ -14,6 +14,11 @@ const axiosIns = axios.create({
 export const login = (body) => {
     return axiosIns.post(`/api/login`, body);
 }
+
+export const logout = (userId) => {
+    return axiosIns.post(`/api/logout/${userId}`);
+}
+
 export const fetchMessages = () => {
     return axiosIns.get(`/api/messages`);
 }

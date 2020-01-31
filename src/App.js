@@ -3,7 +3,7 @@ import { YellowBox } from "react-native"
 import Login from "./Login";
 import Chat from "./Chat";
 import AsyncStorage from "@react-native-community/async-storage";
-import { login } from "./utils/api";
+import { login, logout } from "./utils/api";
 import firebase from 'react-native-firebase';
 
 YellowBox.ignoreWarnings(["Unrecognized WebSocket"])
@@ -71,7 +71,12 @@ const App = () => {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem("user-infor")
+      const response = await logout(id)
+      if(response.data.ok){
+        await AsyncStorage.removeItem("user-infor")
+      }else{
+        console.log("Logout failed ====>", response)
+      }
     } catch (error) {
       console.log(error)
     }
